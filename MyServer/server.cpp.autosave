@@ -1,0 +1,60 @@
+#include "server.h"
+#include <QtNetwork/QUdpSocket>
+#include <iostream>
+
+
+Server::Server(QObject *parent):QObject(parent)
+{
+    receiver_ = new QUdpSocket(this);
+
+    receiver_->bind(QHostAddress("192.168.2.2"),1234);
+
+    connect(receiver_,SIGNAL(readyRead()),this,SLOT(serverReceive()));
+    sum_=0;
+    counter_=1;
+}
+
+void Server::serverReceive()
+{
+    qDebug()<<"Data receiving by server ...";
+
+    QByteArray buffer;
+
+    buffer.resize(receiver_->pendingDatagramSize());
+
+    QHostAddress sender;
+    quint16 senderPort;
+
+    bool ok;
+    receiver_->readDatagram(buffer.data(), buffer.size(), &sender , &senderPort);
+
+
+    sum_+=buffer.toHex().toInt(&ok,16);
+
+    qDebug()<<"Data is :"<<buffer.toHex().toInt(&ok,16);
+    qDebug()<<"Sum  is :"<<sum_;
+
+    serverFeedback();
+
+}
+
+void Server::serverFeedback()
+{
+
+    average_=sum_/counter_;
+
+    QByteArray avgHolder;
+
+    avgHolder[0] = (average_ >>  24) & 0xFF;
+    avgHolder[1] = (average_ >>  16) & 0xFF;
+    avgHolder[2] = (average_ >>  8 ) & 0xFF;
+    avgHolder[3] = (average_ & 0xFF);
+
+    receiver_->writeDatagram(avgHolder,QHostAddress("192.168.2.1"), 1235);
+    ++counter_;
+
+
+    qDebug()<<"Average server is :"<<average_;
+}
+
+
